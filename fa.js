@@ -263,7 +263,7 @@ export class FaceDetectionApp {
 
     switch (this.cycleState) {
       case 'waiting':
-        if (elapsed >= 2000) {
+        if (elapsed >= 5000) {
           this.startDetectionCycle();
         }
         break;
@@ -369,7 +369,7 @@ export class FaceDetectionApp {
       } else {
         setTimeout(() => {
           this.startNextCycle();
-        }, 2000);
+        }, 5000);
       }
     }
   }
