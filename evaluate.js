@@ -106,7 +106,8 @@ export function calculateFaceQuality(kps) {
 
       return totalScore;
     }
-export function alignFace(originalCanvas, kps, bbox, padding = 10){
+    
+export function alignFace(originalCanvas, kps, bbox, padding = 2){
     if (kps.length !== 5) {
         debugLog("Invalid keypoint count: " + kps.length);
         return null;
@@ -124,7 +125,7 @@ export function alignFace(originalCanvas, kps, bbox, padding = 10){
     const eyeCenterY = (leftEye[1] + rightEye[1]) / 2;
 
     const w = originalCanvas.width;
-    const h = originalCanvas.height;
+    const h = originalCanvas.height;  
 
     const angle = -angleRad; // Canvas rotates opposite to OpenCV
     const cosA = Math.cos(angle);
@@ -294,130 +295,3 @@ export  function nms(dets, thresh = 0.4) {
       return keep;
     }
 
-export async function sendBestFaceToServer(faceDataUrl) {
-  const serverUrl = 'http://172.16.8.122:8000/query';
-  
-  try {
-    debugLog("Preparing to send best face to server...");
-    const status = document.getElementById('status');
-    status.innerHTML = '<div style="color: #ff9800;">📤 Sending best face to server...</div>';
-    
-    // Validate input data
-    if (!faceDataUrl) {
-      throw new Error('No face data URL provided');
-    }
-    
-    // Kiểm tra định dạng data URL
-    if (!faceDataUrl.startsWith('data:image/')) {
-      throw new Error('Invalid data URL format');
-    }
-    
-    debugLog(`Data URL length: ${faceDataUrl.length}`);
-    debugLog(`Data URL prefix: ${faceDataUrl.substring(0, 50)}...`);
-    
-    // Chuyển đổi data URL thành Blob
-    const response = await fetch(faceDataUrl);
-    const blob = await response.blob();
-    
-    debugLog(`Blob size: ${blob.size} bytes, type: ${blob.type}`);
-    
-    // Kiểm tra kích thước blob
-    if (blob.size === 0) {
-      throw new Error('Generated blob is empty');
-    }
-    
-    if (blob.size > 10 * 1024 * 1024) { // 10MB limit
-      throw new Error('Image too large (>10MB)');
-    }
-    
-    // Tạo FormData để gửi file
-    const formData = new FormData();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filename = `best_face_${timestamp}.png`;
-    
-    formData.append('image', blob, filename);
-    formData.append('score', bestScore.toFixed(2));
-    formData.append('timestamp', timestamp);
-    formData.append('processed_faces', processedFacesCount.toString());
-    
-    // Debug FormData contents
-    debugLog(`FormData entries:`);
-    for (let [key, value] of formData.entries()) {
-      if (key === 'image') {
-        debugLog(`  ${key}: [File] ${value.name}, size: ${value.size}, type: ${value.type}`);
-      } else {
-        debugLog(`  ${key}: ${value}`);
-      }
-    }
-    
-    debugLog(`Sending ${filename} to ${serverUrl}...`);
-    
-    // Test server connectivity first
-    try {
-      const pingResponse = await fetch(serverUrl.replace('/predict', '/'), { 
-        method: 'GET',
-        mode: 'no-cors' // Avoid CORS issues for ping
-      });
-      debugLog('Server ping successful');
-    } catch (pingError) {
-      debugLog(`Server ping failed: ${pingError.message}`);
-    }
-    
-    // Gửi POST request với timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // Tăng timeout lên 30s
-    
-    const serverResponse = await fetch(serverUrl, {
-      method: 'POST',
-      body: formData,
-      signal: controller.signal,
-      // Không thêm Content-Type header khi dùng FormData
-      headers: {
-        // 'Accept': 'application/json', // Có thể thêm nếu server yêu cầu
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    // Log response details
-    debugLog(`Response status: ${serverResponse.status}`);
-    debugLog(`Response statusText: ${serverResponse.statusText}`);
-    debugLog(`Response headers:`);
-    for (let [key, value] of serverResponse.headers.entries()) {
-      debugLog(`  ${key}: ${value}`);
-    }
-    
-    if (serverResponse.ok) {
-      const result = await serverResponse.text();
-      debugLog("Server response: " + result);
-      status.innerHTML = '<div style="color: #4CAF50;">✅ Best face sent successfully to server!</div>';
-      return { success: true, response: result };
-    } else {
-      // Đọc error response từ server
-      let errorDetails = '';
-      try {
-        errorDetails = await serverResponse.text();
-        debugLog(`Server error details: ${errorDetails}`);
-      } catch (readError) {
-        debugLog(`Could not read error response: ${readError.message}`);
-      }
-      
-      throw new Error(`Server responded with status: ${serverResponse.status} ${serverResponse.statusText}. Details: ${errorDetails}`);
-    }
-    
-  } catch (error) {
-    console.error('Failed to send best face to server:', error);
-    debugLog("Failed to send to server: " + error.message);
-    
-    let errorMessage = error.message;
-    if (error.name === 'AbortError') {
-      errorMessage = 'Request timeout (30s)';
-    } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      errorMessage = 'Network error - cannot reach server';
-    }
-    
-    const status = document.getElementById('status');
-    status.innerHTML = '<div style="color: red;">❌ Failed to send to server: ' + errorMessage + '</div>';
-    return { success: false, error: errorMessage };
-  }
-}
