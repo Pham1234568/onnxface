@@ -153,7 +153,7 @@ export class FaceDetectionApp {
       
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       this.video.srcObject = stream;
-      this.video.src = null; // Clear any file URL
+      this.video.src = null;
       
       return new Promise((resolve, reject) => {
         this.video.onloadedmetadata = () => {
@@ -263,7 +263,7 @@ export class FaceDetectionApp {
 
     switch (this.cycleState) {
       case 'waiting':
-        if (elapsed >= 2000) {
+        if (elapsed >= 4000) {
           this.startDetectionCycle();
         }
         break;
@@ -365,11 +365,11 @@ export class FaceDetectionApp {
       if (this.isVideoMode) {
         setTimeout(async () => {
           await this.switchToCameraMode();
-        }, 1000);
+        }, 1000);        
       } else {
         setTimeout(() => {
           this.startNextCycle();
-        }, 2000);
+        }, 5000);
       }
     }
   }
@@ -425,13 +425,13 @@ export class FaceDetectionApp {
       
       this.state.currentQuality = analysis.blur;
     
-      if (analysis.blur >= this.state.blurThreshold && analysis.overallScore > this.state.bestScore) {
+      if (analysis.blur >= this.state.blurThreshold && analysis.overallScore > this.state.bestScore && analysis.overallScore>9.8) {
         this.updateBestFace(alignedCanvas, analysis, face);
         this.state.addDebugMessage(`New best face! Score: ${analysis.overallScore.toFixed(3)}`);
       } else if (analysis.blur < this.state.blurThreshold) {
         this.state.addDebugMessage(`Face too blurry: ${analysis.blur.toFixed(1)} < ${this.state.blurThreshold}`);
       }
-      
+
     } catch (error) {
       this.state.addDebugMessage(`Face processing error: ${error.message}`);
     }
@@ -578,7 +578,7 @@ export class FaceDetectionApp {
           this.ui.updateStatus('No face found in video', 'warning');
           setTimeout(async () => {
             await this.switchToCameraMode();
-          }, 2000);
+          }, 1000);
         }
       };
       
